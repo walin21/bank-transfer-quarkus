@@ -1,0 +1,53 @@
+info:
+  name: 01 POST-Login admin
+  type: http
+  seq: 11
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/v1/auth/login"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Accept
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "email": "admin@bank-transfer.local",
+        "password": "secret"
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        const data = res.getBody();
+
+        // Suponiendo que tu API devuelve { "accessToken": "xyz..." } o { "token": "xyz..." }
+        const token = data.accessToken || data.token; 
+
+        if (token) {
+        //   bru.setEnvVar("accessToken", token);
+          bru.setGlobalEnvVar("accessToken", token)
+          console.log("Token guardado correctamente.");
+        } else {
+          console.error("No se encontró el token en la respuesta de Login.");
+        }
+  actions:
+    - type: set-variable
+      phase: after-response
+      selector:
+        expression: res.body.accessToken
+        method: jsonq
+      variable:
+        name: accessToken
+        scope: runtime
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

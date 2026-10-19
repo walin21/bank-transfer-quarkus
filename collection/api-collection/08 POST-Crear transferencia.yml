@@ -1,0 +1,45 @@
+info:
+  name: 08 POST-Crear transferencia
+  type: http
+  seq: 7
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/v1/transfers"
+  headers:
+    - name: Authorization
+      value: Bearer {{accessToken}}
+    - name: Accept
+      value: application/json
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "sourceAccountId": "{{accountId}}",
+        "beneficiaryId": "{{beneficiaryId}}",
+        "amount": 150.00
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        const data = res.getBody();
+
+        const transferId = data.id;
+
+        if (transferId) {
+          bru.setGlobalEnvVar("transferId", transferId)
+          console.log("transferId guardado correctamente.");
+        } else {
+          console.error("No se encontró el transferId en la respuesta.");
+        }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

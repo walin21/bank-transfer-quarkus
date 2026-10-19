@@ -1,0 +1,26 @@
+info:
+  name: 07 DELETE-Desactivar beneficiario
+  type: http
+  seq: 13
+
+http:
+  method: DELETE
+  url: "{{baseUrl}}/api/v1/beneficiaries/:beneficiaryId"
+  headers:
+    - name: Authorization
+      value: Bearer {{accessToken}}
+    - name: Accept
+      value: application/json
+    - name: Content-Type
+      value: application/json
+  params:
+    - name: beneficiaryId
+      value: "{{beneficiaryId}}"
+      type: path
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

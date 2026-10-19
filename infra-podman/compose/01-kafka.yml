@@ -1,0 +1,62 @@
+# Dependency order: Zookeeper -> Kafka -> Schema Registry.
+# This file contains the messaging backbone used by both applications.
+services:
+  # Kafka coordination service. It must start before the broker.
+  zookeeper:
+    image: docker.io/confluentinc/cp-zookeeper:7.7.1
+    container_name: bank-transfer-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    volumes:
+      - zookeeper-data:/var/lib/zookeeper/data:Z
+      - zookeeper-log:/var/lib/zookeeper/log:Z
+    networks:
+      - bank-transfer-net
+
+  # Internal clients use kafka:9092; host clients use the published port.
+  kafka:
+    image: docker.io/confluentinc/cp-kafka:7.7.1
+    container_name: bank-transfer-kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "${KAFKA_PORT:-19092}:${KAFKA_PORT:-19092}"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:9092,EXTERNAL://0.0.0.0:${KAFKA_PORT:-19092}
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://${KAFKA_ADVERTISED_HOST:-localhost}:${KAFKA_PORT:-19092}
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+    networks:
+      - bank-transfer-net
+
+  # The registry depends on Kafka to store schema metadata.
+  schema-registry:
+    image: docker.io/confluentinc/cp-schema-registry:7.7.1
+    container_name: bank-transfer-schema-registry
+    depends_on:
+      - kafka
+    ports:
+      - "${SCHEMA_REGISTRY_PORT:-8083}:8081"
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: PLAINTEXT://kafka:9092
+    networks:
+      - bank-transfer-net
+
+networks:
+  bank-transfer-net:
+    external: true
+
+volumes:
+  zookeeper-data:
+    name: bank-transfer-infrastructure_zookeeper-data
+  zookeeper-log:
+    name: bank-transfer-infrastructure_zookeeper-log

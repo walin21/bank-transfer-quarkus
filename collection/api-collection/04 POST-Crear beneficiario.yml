@@ -1,0 +1,31 @@
+info:
+  name: 04 POST-Crear beneficiario
+  type: http
+  seq: 4
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/v1/beneficiaries"
+  headers:
+    - name: Authorization
+      value: Bearer {{accessToken}}
+    - name: Accept
+      value: application/json
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "alias": "Ahorros USD",
+        "bankName": "Banco Demo",
+        "accountNumber": "002-000000099",
+        "currency": "USD"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

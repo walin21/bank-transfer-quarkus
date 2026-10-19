@@ -1,0 +1,75 @@
+{
+  "type": "record",
+  "name": "TransferCreated",
+  "namespace": "org.acme.transfer.event",
+  "doc": "Contrato oficial publicado cuando una transferencia queda en estado PENDING.",
+  "fields": [
+    {
+      "name": "eventId",
+      "type": "string",
+      "doc": "Identificador único de esta publicación del evento, en formato UUID."
+    },
+    {
+      "name": "transferId",
+      "type": "string",
+      "doc": "Identificador de la transferencia, en formato UUID. Es la clave de idempotencia del consumer."
+    },
+    {
+      "name": "customerId",
+      "type": "string",
+      "doc": "Identificador del cliente propietario de la transferencia, en formato UUID."
+    },
+    {
+      "name": "sourceAccountId",
+      "type": "string",
+      "doc": "Identificador de la cuenta de origen, en formato UUID."
+    },
+    {
+      "name": "beneficiaryId",
+      "type": "string",
+      "doc": "Identificador del beneficiario, en formato UUID."
+    },
+    {
+      "name": "amount",
+      "type": {
+        "type": "bytes",
+        "logicalType": "decimal",
+        "precision": 18,
+        "scale": 2
+      },
+      "doc": "Importe exacto de la transferencia, con escala monetaria de 2 decimales."
+    },
+    {
+      "name": "sourceCurrency",
+      "type": "string",
+      "doc": "Moneda de la cuenta de origen, por ejemplo PEN o USD."
+    },
+    {
+      "name": "targetCurrency",
+      "type": "string",
+      "doc": "Moneda del beneficiario, por ejemplo PEN o USD."
+    },
+    {
+      "name": "exchangeRate",
+      "type": [
+        "null",
+        {
+          "type": "bytes",
+          "logicalType": "decimal",
+          "precision": 18,
+          "scale": 10
+        }
+      ],
+      "default": null,
+      "doc": "Tipo de cambio exacto; es null cuando sourceCurrency y targetCurrency coinciden."
+    },
+    {
+      "name": "createdAt",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      },
+      "doc": "Fecha y hora UTC de creación, representada como milisegundos desde Unix epoch."
+    }
+  ]
+}

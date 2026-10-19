@@ -1,0 +1,26 @@
+info:
+  name: 11 GET-Consultar historial de transferencia
+  type: http
+  seq: 10
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/v1/transfers/:transferId/history"
+  headers:
+    - name: Authorization
+      value: Bearer {{accessToken}}
+    - name: Accept
+      value: application/json
+    - name: Content-Type
+      value: application/json
+  params:
+    - name: transferId
+      value: "{{transferId}}"
+      type: path
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

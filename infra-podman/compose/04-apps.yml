@@ -1,0 +1,68 @@
+# Application layer. The services below depend on PostgreSQL, Kafka and Schema Registry.
+services:
+  # Synchronous transfer API: persists transfers and publishes events.
+  transfer-api:
+    image: localhost/bank-transfer-api:latest
+    build:
+      context: ../../transfer-api
+      dockerfile: src/main/docker/Dockerfile.jvm
+    container_name: bank-transfer-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      schema-registry:
+        condition: service_started
+    ports:
+      - "${TRANSFER_API_HTTP_PORT:-8081}:8080"
+    environment:
+      TRANSFER_API_HTTP_PORT: 8080
+      DATABASE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-bank_transfer}
+      DATABASE_USER: ${POSTGRES_USER:-postgres}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in infra-podman/.env}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      KAFKA_TRANSFER_TOPIC: ${KAFKA_TRANSFER_TOPIC:-bank.transfer.created}
+      EXCHANGE_RATE_API_BASE_URL: ${EXCHANGE_RATE_API_BASE_URL:-https://api.frankfurter.dev}
+      JWT_ISSUER: ${JWT_ISSUER:-bank-transfer}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-15M}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set in infra-podman/.env}
+      DEMO_PASSWORD: ${DEMO_PASSWORD:?DEMO_PASSWORD must be set in infra-podman/.env}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@bank-transfer.local}
+      TZ: ${TZ:-America/Lima}
+    networks:
+      - bank-transfer-net
+
+  # Asynchronous consumer: reads transfer events and updates transfer state.
+  transfer-consumer:
+    image: localhost/bank-transfer-consumer:latest
+    build:
+      context: ../../transfer-consumer
+      dockerfile: src/main/docker/Dockerfile.jvm
+    container_name: bank-transfer-consumer
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      schema-registry:
+        condition: service_started
+    ports:
+      - "${TRANSFER_CONSUMER_HTTP_PORT:-8082}:8080"
+    environment:
+      TRANSFER_CONSUMER_HTTP_PORT: 8080
+      DATABASE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-bank_transfer}
+      DATABASE_USER: ${POSTGRES_USER:-postgres}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in infra-podman/.env}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      KAFKA_TRANSFER_TOPIC: ${KAFKA_TRANSFER_TOPIC:-bank.transfer.created}
+      KAFKA_GROUP_ID: ${KAFKA_GROUP_ID:-transfer-consumer-group}
+      TZ: ${TZ:-America/Lima}
+    networks:
+      - bank-transfer-net
+
+networks:
+  bank-transfer-net:
+    external: true

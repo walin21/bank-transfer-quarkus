@@ -1,0 +1,34 @@
+# Independent infrastructure dependency for both transfer applications.
+# Initialization scripts run only when PostgreSQL creates a new data volume.
+services:
+  postgres:
+    image: docker.io/library/postgres:16-alpine
+    container_name: bank-transfer-postgres
+    restart: unless-stopped
+    ports:
+      - "${POSTGRES_PORT:-15432}:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-bank_transfer}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in infra-podman/.env}
+      TZ: ${TZ:-America/Lima}
+      PGTZ: ${TZ:-America/Lima}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ../scripts/01-schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro,Z
+      - ../scripts/02-seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro,Z
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - bank-transfer-net
+
+networks:
+  bank-transfer-net:
+    external: true
+
+volumes:
+  postgres-data:
+    name: bank-transfer-infrastructure_postgres-data

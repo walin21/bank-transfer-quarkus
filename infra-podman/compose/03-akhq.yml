@@ -1,0 +1,26 @@
+# Optional observability layer. It is started after Kafka and Schema Registry.
+services:
+  akhq:
+    image: docker.io/tchiotludo/akhq:0.25.1
+    container_name: bank-transfer-akhq
+    restart: unless-stopped
+    depends_on:
+      - kafka
+      - schema-registry
+    ports:
+      - "${AKHQ_PORT:-9021}:8080"
+    environment:
+      AKHQ_CONFIGURATION: |
+        akhq:
+          connections:
+            bank-transfer:
+              properties:
+                bootstrap.servers: "kafka:9092"
+              schema-registry:
+                url: "http://schema-registry:8081"
+    networks:
+      - bank-transfer-net
+
+networks:
+  bank-transfer-net:
+    external: true

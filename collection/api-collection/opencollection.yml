@@ -1,0 +1,265 @@
+opencollection: 1.0.0
+
+info:
+  name: api-collection
+config:
+  proxy:
+    inherit: true
+    config:
+      protocol: http
+      hostname: ""
+      port: ""
+      auth:
+        username: ""
+        password: ""
+      bypassProxy: ""
+
+docs:
+  content: |-
+    # Bank Transfer API
+
+    Colección de endpoints REST de `transfer-api`.
+
+    ## Configuración
+
+    URL base local: `http://localhost:8081`.
+
+    Variables requeridas:
+
+    | Variable | Uso |
+    | --- | --- |
+    | `baseUrl` | URL base de la API, normalmente `http://localhost:8081` |
+    | `accessToken` | JWT obtenido desde Login |
+    | `accountId` | UUID de una cuenta propia activa |
+    | `beneficiaryId` | UUID de un beneficiario propio activo |
+    | `transferId` | UUID de una transferencia creada |
+    | `customerId` | UUID del cliente usado por el filtro administrativo |
+
+    La contraseña demo local por defecto es `secret`. El consumer escucha los
+    eventos Kafka en el puerto `8082`, pero no expone endpoints HTTP.
+
+    ## Autenticación
+
+    `POST /api/v1/auth/login` es público. Todos los demás endpoints requieren:
+
+    ```http
+    Authorization: Bearer {{accessToken}}
+    Accept: application/json
+    ```
+
+    Los endpoints con body JSON requieren también:
+
+    ```http
+    Content-Type: application/json
+    ```
+
+    ## Endpoints
+
+    ### 1. Login de cliente
+
+    `POST {{baseUrl}}/api/v1/auth/login`
+
+    Body:
+
+    ```json
+    {
+      "email": "demo@bank-transfer.local",
+      "password": "secret"
+    }
+    ```
+
+    Responde `200` con `accessToken`, `tokenType` y `expiresInSeconds`.
+    El token de cliente contiene el grupo `CUSTOMER`.
+
+    ### 2. Login de administrador
+
+    `POST {{baseUrl}}/api/v1/auth/login`
+
+    Body:
+
+    ```json
+    {
+      "email": "admin@bank-transfer.local",
+      "password": "secret"
+    }
+    ```
+
+    Responde `200`. El JWT del administrador contiene los grupos `CUSTOMER` y
+    `ADMIN`, necesarios para consultar el endpoint administrativo.
+
+    ### 3. Listar cuentas propias
+
+    `GET {{baseUrl}}/api/v1/accounts`
+
+    No recibe parámetros ni body. Responde `200` con un arreglo de cuentas del
+    cliente autenticado. Guardar el `id` de una cuenta activa en `accountId`.
+
+    ### 4. Listar beneficiarios
+
+    `GET {{baseUrl}}/api/v1/beneficiaries`
+
+    No recibe parámetros ni body. Responde `200` con los beneficiarios del
+    cliente autenticado.
+
+    ### 5. Crear beneficiario
+
+    `POST {{baseUrl}}/api/v1/beneficiaries`
+
+    Body:
+
+    ```json
+    {
+      "alias": "Ahorros USD",
+      "bankName": "Banco Demo",
+      "accountNumber": "002-000000099",
+      "currency": "USD"
+    }
+    ```
+
+    `alias`, `bankName` y `accountNumber` son obligatorios y no pueden estar
+    vacíos. Sus longitudes máximas son 80, 120 y 32 caracteres. `currency` solo
+    admite `PEN` o `USD`. Responde `201` con el beneficiario creado. Un alias
+    duplicado para el mismo cliente responde `409 BENEFICIARY_EXISTS`.
+
+    Para completar una transferencia en el entorno demo, `accountNumber` debe
+    corresponder a una cuenta destino interna existente y activa. El seed local
+    incluye la cuenta USD `002-000000099`; por eso ese es el número usado en
+    este ejemplo. Un número que no exista hará que el consumer marque la
+    transferencia como `REJECTED` con motivo de cuenta destino inexistente.
+
+    ### 6. Consultar beneficiario
+
+    `GET {{baseUrl}}/api/v1/beneficiaries/{{beneficiaryId}}`
+
+    Responde `200` con el beneficiario propio. Si no existe o pertenece a otro
+    cliente responde `404 BENEFICIARY_NOT_FOUND`.
+
+    ### 7. Actualizar beneficiario
+
+    `PUT {{baseUrl}}/api/v1/beneficiaries/{{beneficiaryId}}`
+
+    Requiere el body completo del beneficiario y usa las mismas validaciones de
+    formato que la creación. Responde `200` con el beneficiario actualizado.
+
+    ### 8. Desactivar beneficiario
+
+    `DELETE {{baseUrl}}/api/v1/beneficiaries/{{beneficiaryId}}`
+
+    No recibe body. Es una baja lógica: cambia el estado a `BLOCKED` y responde
+    `204 No Content`.
+
+    ### 9. Crear transferencia
+
+    `POST {{baseUrl}}/api/v1/transfers`
+
+    Body:
+
+    ```json
+    {
+      "sourceAccountId": "{{accountId}}",
+      "beneficiaryId": "{{beneficiaryId}}",
+      "amount": 150.00
+    }
+    ```
+
+    `sourceAccountId` y `beneficiaryId` deben ser UUID propios y activos.
+    `amount` es obligatorio y debe ser mayor o igual a `0.01`.
+
+    Responde `202` con la transferencia en estado `PENDING`. Si las monedas de
+    origen y destino difieren, la API consulta Frankfurter antes de guardar la
+    transferencia. El procesamiento posterior lo realiza `transfer-consumer`.
+
+    La respuesta `202` solo confirma el registro y publicación del evento. Se
+    debe consultar la transferencia hasta que pase a `COMPLETED` o `REJECTED`
+    antes de desactivar el beneficiario. Si se desactiva mientras el evento
+    todavía está pendiente, el consumer la rechazará con el motivo
+    `Beneficiary is not active`.
+
+    Errores principales: `400 VALIDATION_ERROR`, `404 SOURCE_ACCOUNT_NOT_FOUND`
+    o `BENEFICIARY_NOT_FOUND`, `409 ACCOUNT_BLOCKED`, `503
+    EXCHANGE_RATE_UNAVAILABLE` o `EVENT_PUBLICATION_FAILED`.
+
+    ### 10. Listar transferencias propias
+
+    `GET {{baseUrl}}/api/v1/transfers`
+
+    No recibe parámetros ni body. Responde `200` con las transferencias del
+    cliente autenticado, ordenadas por fecha de creación descendente.
+
+    ### 11. Consultar transferencia propia
+
+    `GET {{baseUrl}}/api/v1/transfers/{{transferId}}`
+
+    Responde `200` con la transferencia propia o `404 TRANSFER_NOT_FOUND`.
+
+    ### 12. Consultar historial de transferencia
+
+    `GET {{baseUrl}}/api/v1/transfers/{{transferId}}/history`
+
+    Responde `200` con el historial ordenado por fecha de creación. El historial
+    registra, entre otros, los cambios `PENDING → COMPLETED` o
+    `PENDING → REJECTED`.
+
+    ### 13. Listar transferencias como administrador
+
+    `GET {{baseUrl}}/api/v1/admin/transfers`
+
+    Requiere un JWT con el grupo `ADMIN`. Admite los siguientes query params
+    opcionales:
+
+    | Parámetro | Ejemplo | Descripción |
+    | --- | --- | --- |
+    | `status` | `PENDING` | Filtra por `PENDING`, `COMPLETED` o `REJECTED` |
+    | `customerId` | `{{customerId}}` | Filtra por UUID de cliente |
+
+    Ejemplo:
+
+    `GET {{baseUrl}}/api/v1/admin/transfers?status=COMPLETED&customerId={{customerId}}&from=2026-10-01T00:00:00Z&to=2026-10-31T23:59:59Z`
+
+    Responde `200`. Un estado inválido responde `400 INVALID_TRANSFER_STATUS` y
+    un JWT sin permisos administrativos responde `403`.
+
+    ## Flujo recomendado
+
+    1. Ejecutar Login y guardar `accessToken`.
+    2. Ejecutar Listar cuentas y guardar una cuenta activa en `accountId`.
+    3. Ejecutar Listar beneficiarios o Crear beneficiario y guardar su UUID en
+       `beneficiaryId`.
+    4. Ejecutar Crear transferencia mientras el beneficiario esté `ACTIVE` y guardar su `id` en `transferId`.
+    5. Consultar periódicamente la transferencia y su historial hasta que el
+       estado sea `COMPLETED` o `REJECTED`; el procesamiento es asíncrono y no
+       debe asumirse que terminó al recibir el `202`.
+    6. Si el estado es `REJECTED`, revisar `failureReason` y el historial antes
+       de reintentar.
+    7. Ejecutar Desactivar beneficiario como operación final opcional, solo
+       después de que la transferencia haya alcanzado un estado terminal.
+
+    ## Formato de error
+
+    ```json
+    {
+      "timestamp": "2026-10-18T12:00:00Z",
+      "status": 400,
+      "code": "VALIDATION_ERROR",
+      "message": "Request validation failed",
+      "path": "/api/v1/transfers"
+    }
+    ```
+
+    Códigos habituales:
+
+    | HTTP | Causa | Acción |
+    | --- | --- | --- |
+    | `400` | Validación o estado inválido | Revisar campos, UUID y `status` |
+    | `401` | Token ausente/inválido o credenciales inválidas | Ejecutar Login nuevamente |
+    | `403` | Customer intentando `/admin/*` | Usar un JWT con `ADMIN` |
+    | `404` | UUID inexistente o de otro cliente | Confirmar IDs y propietario |
+    | `409` | Alias duplicado o cuenta bloqueada | Revisar alias y estado |
+    | `503` | Frankfurter o Kafka no disponible | Verificar infraestructura y reintentar |
+  type: text/markdown
+bundled: false
+extensions:
+  bruno:
+    ignore:
+      - node_modules
+      - .git

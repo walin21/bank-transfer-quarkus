@@ -1,0 +1,58 @@
+# Maven / Quarkus build output
+**/target/
+**/generated-sources/
+**/generated-test-sources/
+**/dependency-reduced-pom.xml
+release.properties
+
+# Maven wrapper cache (the wrapper scripts and checked-in wrapper JAR remain tracked)
+**/.mvn/wrapper/maven-wrapper.jar
+**/.quarkus/
+
+# IDE metadata
+.idea/
+**/*.iml
+.vscode/
+*.swp
+*.swo
+
+# Operating system files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Logs and runtime output
+*.log
+logs/
+**/logs/
+!docs/evidence/*.log
+*.pid
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+*.local
+*.secret
+*.secrets
+*.key
+*.jwk
+*.crt
+*.der
+*.pem
+*.p12
+*.jks
+.envrc
+
+# Local infrastructure state and persisted container data
+infra-podman/volumes/
+**/volumes/
+
+# Temporary files
+tmp/
+temp/
+**/tmp/
+**/temp/
+*.tmp
+*.bak
+*.orig
